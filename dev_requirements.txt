@@ -1,0 +1,6 @@
+strawberry-graphql
+strawberry-graphql-django
+django
+pytest
+pytest-django
+pytest-cov
