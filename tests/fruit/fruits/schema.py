@@ -23,6 +23,8 @@ class Color:
 class Query:
     fruits: List[Fruit] = strawberry.django.field()
     optimized_fruits: List[Fruit] = optimized_django_field()
+    colors: List[Color] = strawberry.django.field()
+    optimized_colors: List[Color] = optimized_django_field()
 
 
 schema = strawberry.Schema(Query)

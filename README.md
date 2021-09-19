@@ -68,7 +68,7 @@ class Query:
     fruits: List[Fruit] = optimized_django_field()
 ```
 
-The following graphql query would produce n + 1 DB queries:
+The following graphql query would cause n + 1 DB queries:
 
 ```graphql
 query Fruit {
@@ -83,10 +83,88 @@ query Fruit {
 }
 ```
 
-Since `optimized_django_field` was used instead of `strawberry.django.field` the queryset was automatically optimized
-with `select_related('color')`:
+Since `optimized_django_field` was used instead of `strawberry.django.field` the queryset is automatically optimized.
 
 ```py
 # optimized queryset:
 Fruits.objects.select_related('color').only('id', 'name', 'color__id', 'color__name')
 ```
+
+Reverse `ForeignKey` relations also are automatically optimized with `prefetch_related`:
+```graphql
+query Colors {
+    colors {
+        id
+        name
+        fruits {
+            id
+            name
+        }
+    }
+}
+```
+
+```py
+# optimized queryset:
+Color.objects.only('id', 'name', 'color').prefetch_related(
+    Prefetch('fruits', queryset=Fruit.objects.only('id', 'name'))
+)
+```
+
+## Advances usage
+
+Use `resolver_hint` for cases where `only`, `select_related` and `prefetch_related` optimizations can't be inferred automatically.
+To keep the `only` when using resolver functions `resolver_hints` must be used to declare all fields that are accessed
+or the `only` optimization will be disabled. 
+```py
+# schema.py
+import strawberry
+from strawberry.django import auto
+from strawberry_django_optimizer import resolver_hints
+from fruits import models
+
+
+@strawberry.django.type(models.Fruit)
+class Fruit:
+    id: auto
+    
+    @resolver_hints(only=('name',))
+    @strawberry.field
+    def name_display(self) -> str:
+        return f'My name is: {self.name}'
+```
+
+```py
+# schema.py
+import strawberry
+from strawberry.django import auto
+from strawberry_django_optimizer import resolver_hints
+from fruits import models
+
+
+@strawberry.django.type(models.Fruit)
+class Fruit:
+    id: auto
+    
+    @resolver_hints(
+        select_related=('color',),
+        only=('color__name',),
+    )
+    def color_display(self) -> str:
+        return f'My color is: {self.color.name}'
+
+```
+
+### Parameters for `resolver_hint`
+
+| Parameter          | Usage                                         |
+| ------------------ | --------------------------------------------- |
+| `model_field`      | If the resolver returns a model field         |
+| `only`             | Declare all fields that the resolver accesses |
+| `select_related`   | If the resolver uses related fields           |
+| `prefetch_realted` | If the resolver uses related fields           |
+
+## Known issues (ToDo)
+
+- Inline Fragments can't be optimized
+- Interfaces and Unions are not supported
