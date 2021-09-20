@@ -111,10 +111,10 @@ Color.objects.only('id', 'name', 'color').prefetch_related(
 )
 ```
 
-## Advances usage
+## Advanced usage
 
 Use `resolver_hint` for cases where `only`, `select_related` and `prefetch_related` optimizations can't be inferred automatically.
-To keep the `only` when using resolver functions `resolver_hints` must be used to declare all fields that are accessed
+To keep the `only` optimization when using custom resolver functions, `resolver_hints` must be used to declare all fields that are accessed
 or the `only` optimization will be disabled. 
 ```py
 # schema.py
@@ -133,7 +133,7 @@ class Fruit:
     def name_display(self) -> str:
         return f'My name is: {self.name}'
 ```
-
+If the resolver function accesses a related field you can add an optimization hint for `select_related`:
 ```py
 # schema.py
 import strawberry
@@ -162,7 +162,7 @@ class Fruit:
 | `model_field`      | If the resolver returns a model field         |
 | `only`             | Declare all fields that the resolver accesses |
 | `select_related`   | If the resolver uses related fields           |
-| `prefetch_realted` | If the resolver uses related fields           |
+| `prefetch_reltaed` | If the resolver uses related fields           |
 
 ## Known issues (ToDo)
 
