@@ -106,7 +106,7 @@ query Colors {
 
 ```py
 # optimized queryset:
-Color.objects.only('id', 'name', 'color').prefetch_related(
+Color.objects.only('id', 'name').prefetch_related(
     Prefetch('fruits', queryset=Fruit.objects.only('id', 'name'))
 )
 ```
@@ -162,7 +162,7 @@ class Fruit:
 | `model_field`      | If the resolver returns a model field         |
 | `only`             | Declare all fields that the resolver accesses |
 | `select_related`   | If the resolver uses related fields           |
-| `prefetch_reltaed` | If the resolver uses related fields           |
+| `prefetch_related` | If the resolver uses related fields           |
 
 ## Known issues (ToDo)
 

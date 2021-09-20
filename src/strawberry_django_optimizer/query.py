@@ -80,9 +80,17 @@ class QueryOptimizer:
                 return model
         return None
 
-    def handle_inline_fragment(self, selection, schema, possible_types, store):
-        fragment_type_name = selection.type_condition.name.value
-        graphql_schema = self._get_graphql_schema(schema)
+    @staticmethod
+    def _get_field_def_from_type(graphql_type, name: str):
+        return next(
+            (field for field in graphql_type._type_definition.fields if to_camel_case(field.name) == name),
+            None)
+
+    def handle_inline_fragment(self, selected_field: InlineFragment, possible_types, store: QueryOptimizerStore):
+        fragment_type_name = selected_field.type_condition
+        _logger.info('Inline fragment %r %r', selected_field, fragment_type_name)
+        # ToDo: Find the selected type (fragment_type_name matches a type from possible_types)
+        # ToDo: Call `_optimize_gql_selections` with this type, the fragment selection and the current store
         fragment_type = graphql_schema.get_type(fragment_type_name)
         fragment_possible_types = self._get_possible_types(fragment_type)
         for fragment_possible_type in fragment_possible_types:
@@ -120,14 +128,13 @@ class QueryOptimizer:
         for selected_field in selected_fields:
             if isinstance(selected_field, InlineFragment):
                 # Inline Fragment e.g. `... on Droid {}`
-                # ToDo
-                # self.handle_inline_fragment(selected_field, schema, possible_types, store)
+                self.handle_inline_fragment(selected_field, possible_types, store)
+                continue
+            elif isinstance(selected_field, FragmentSpread):
+                self._optimize_gql_selections(selected_field.selections, graphql_type, store=store)
                 continue
             name = selected_field.name
             if name == '__typename':
-                continue
-            if type(selected_field) is FragmentSpread:
-                self._optimize_gql_selections(selected_field.selections, graphql_type, store=store)
                 continue
             for type_ in possible_types:
                 if isinstance(type_, LazyType):
@@ -136,9 +143,7 @@ class QueryOptimizer:
                     # Cursor pagination - optimize the selected fields in `rows`
                     self._optimize_gql_selections(selected_field.selections, graphql_type, store=store)
                     continue
-                selection_field_def = next(
-                    (field for field in type_._type_definition.fields if to_camel_case(field.name) == name),
-                    None)
+                selection_field_def = self._get_field_def_from_type(type_, name)
                 if not selection_field_def:
                     continue
                 model = type_._django_type.model
@@ -147,7 +152,7 @@ class QueryOptimizer:
                     self._optimize_field(store, model, selected_field, selection_field_def, type_)
         return store
 
-    def _optimize_field(self, store: QueryOptimizerStore, model, selection, field_def, parent_type):
+    def _optimize_field(self, store: QueryOptimizerStore, model, selection: SelectedField, field_def, parent_type):
         optimized_by_name = self._optimize_field_by_name(store, model, selection, field_def)
         optimized_by_hints = self._optimize_field_by_hints(store, selection, field_def)
         if not (optimized_by_name or optimized_by_hints):
@@ -259,7 +264,7 @@ class QueryOptimizer:
 
     def _is_foreign_key_id(self, model_field, name: str) -> bool:
         return (
-            isinstance(model_field, ForeignKey)
-            and model_field.name != name
-            and model_field.get_attname() == name
+                isinstance(model_field, ForeignKey)
+                and model_field.name != name
+                and model_field.get_attname() == name
         )
