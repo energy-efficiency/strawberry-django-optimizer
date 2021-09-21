@@ -12,6 +12,14 @@ class Fruit:
     color: 'Color'
 
 
+@strawberry.django.type(models.Stonefruit)
+class StoneFruit:
+    id: auto
+    name: auto
+    color: 'Color'
+    stone_type: auto
+
+
 @strawberry.django.type(models.Color)
 class Color:
     id: auto
